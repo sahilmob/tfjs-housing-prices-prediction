@@ -3,7 +3,7 @@ import * as tf from "@tensorflow/tfjs";
 const INPUTS = [];
 const OUTPUTS = [];
 
-const LEARNING_RATE = 0.01;
+const LEARNING_RATE = 0.0001;
 const OPTIMIZER = tf.train.sgd(LEARNING_RATE);
 
 function normalize(tensor: tf.Tensor, min?: tf.Tensor, max?: tf.Tensor) {
@@ -42,7 +42,9 @@ INPUTS_TENSOR.dispose();
 
 const model = tf.sequential();
 
-model.add(tf.layers.dense({ inputShape: [1], units: 1 }));
+model.add(tf.layers.dense({ inputShape: [1], units: 25, activation: "relu" }));
+model.add(tf.layers.dense({ units: 5, activation: "relu" }));
+model.add(tf.layers.dense({ units: 1 }));
 
 model.summary();
 
@@ -86,7 +88,7 @@ async function train() {
       callbacks: { onEpochEnd: logProgress },
       shuffle: true,
       batchSize: 2,
-      epochs: 170,
+      epochs: 200,
     }
   );
 
