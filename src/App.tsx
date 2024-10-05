@@ -1,5 +1,10 @@
 import * as tf from "@tensorflow/tfjs";
-import { TRAINING_DATA } from "./assets/real-estate-data";
+
+const INPUTS = [];
+const OUTPUTS = [];
+
+const LEARNING_RATE = 0.01;
+const OPTIMIZER = tf.train.sgd(LEARNING_RATE);
 
 function normalize(tensor: tf.Tensor, min?: tf.Tensor, max?: tf.Tensor) {
   const result = tf.tidy(() => {
@@ -18,12 +23,17 @@ function normalize(tensor: tf.Tensor, min?: tf.Tensor, max?: tf.Tensor) {
   return result;
 }
 
-const INPUTS = TRAINING_DATA.inputs;
-const OUTPUTS = TRAINING_DATA.outputs;
+for (let n = 1; n <= 20; n++) {
+  INPUTS.push(n);
+}
+
+for (let n = 0; n < INPUTS.length; n++) {
+  OUTPUTS.push(INPUTS[n] * INPUTS[n]);
+}
 
 tf.util.shuffleCombo(INPUTS, OUTPUTS);
 
-const INPUTS_TENSOR = tf.tensor2d(INPUTS);
+const INPUTS_TENSOR = tf.tensor1d(INPUTS);
 const OUTPUTS_TENSOR = tf.tensor1d(OUTPUTS);
 
 const FEATURE_RESULT = normalize(INPUTS_TENSOR);
@@ -32,17 +42,18 @@ INPUTS_TENSOR.dispose();
 
 const model = tf.sequential();
 
-model.add(tf.layers.dense({ inputShape: [2], units: 1 }));
+model.add(tf.layers.dense({ inputShape: [1], units: 1 }));
 
 model.summary();
 
 function evaluate() {
   tf.tidy(function () {
     const newInput = normalize(
-      tf.tensor2d([[750, 1]]),
+      tf.tensor1d([7]),
       FEATURE_RESULT.MIN_VALUES,
       FEATURE_RESULT.MAX_VALUES
     );
+
     const output = model.predict(newInput.NORMALIZED_VALUES);
     console.log(output.toString());
 
@@ -54,11 +65,17 @@ function evaluate() {
   });
 }
 
-async function train() {
-  const LEARNING_RATE = 0.01;
+function logProgress(epoch: number, logs?: tf.Logs) {
+  if (logs) console.log("Data for epoch " + epoch, Math.sqrt(logs.loss));
 
+  if (epoch === 70) {
+    OPTIMIZER.setLearningRate(LEARNING_RATE / 2);
+  }
+}
+
+async function train() {
   model.compile({
-    optimizer: tf.train.sgd(LEARNING_RATE),
+    optimizer: OPTIMIZER,
     loss: "meanSquaredError",
   });
 
@@ -66,10 +83,10 @@ async function train() {
     FEATURE_RESULT.NORMALIZED_VALUES,
     OUTPUTS_TENSOR,
     {
-      validationSplit: 0.15,
+      callbacks: { onEpochEnd: logProgress },
       shuffle: true,
-      batchSize: 64,
-      epochs: 10,
+      batchSize: 2,
+      epochs: 170,
     }
   );
 
@@ -79,13 +96,6 @@ async function train() {
   console.log(
     "Avg error loss: " +
       Math.sqrt(result.history.loss[result.history.loss.length - 1] as number)
-  );
-
-  console.log(
-    "Avg validation loss: " +
-      Math.sqrt(
-        result.history.val_loss[result.history.val_loss.length - 1] as number
-      )
   );
 
   evaluate();
